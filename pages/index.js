@@ -1,16 +1,15 @@
-"use client";
+'use client';
 
-import React, { useState } from "react";
-import Head from "next/head";
-import Menu from "@mui/material/Menu";
-import MenuItem from "@mui/material/MenuItem";
-import Modal from "@mui/material/Modal";
-import toast, { Toaster } from "react-hot-toast";
-import { Container, Nav, Navbar } from "react-bootstrap";
-import { MdOutlineSwapCalls } from "react-icons/md";
-import { Box } from "@mui/system";
-import { Button, Typography, Stack } from "@mui/material";
-import { isMobile } from "mobile-device-detect";
+import React, { useState } from 'react';
+import Head from 'next/head';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
+import Modal from '@mui/material/Modal';
+import toast, { Toaster } from 'react-hot-toast';
+import { Container, Nav, Navbar } from 'react-bootstrap';
+import { Box } from '@mui/system';
+import { Button, Typography, Stack } from '@mui/material';
+import { isMobile } from 'mobile-device-detect';
 import {
   getAddress,
   sendBtcTransaction,
@@ -18,11 +17,11 @@ import {
   Wallet,
   AddressPurpose,
   BitcoinNetworkType,
-} from "sats-connect";
-import { BsFillCaretDownFill } from "react-icons/bs";
-import { TbCurrencySolana } from "react-icons/tb";
-import bitcoin from "bitcoinjs-message";
-import { verifyMessage } from "@unisat/wallet-utils";
+} from 'sats-connect';
+import { BsFillCaretDownFill } from 'react-icons/bs';
+import { TbCurrencySolana } from 'react-icons/tb';
+import bitcoin from 'bitcoinjs-message';
+import { verifyMessage } from '@unisat/wallet-utils';
 import {
   ref,
   query,
@@ -32,46 +31,46 @@ import {
   remove,
   get,
   push,
-} from "firebase/database";
-import { db } from "@/services/firebase";
-import { addressData } from "@/constants/address";
-import { FaBitcoin } from "react-icons/fa";
-import { ImSpinner8 } from "react-icons/im";
-import { useWallets, useWallet } from "@wallet-standard/react";
+} from 'firebase/database';
+import { db } from '@/services/firebase';
+import { addressData } from '@/constants/address';
+import { FaBitcoin } from 'react-icons/fa';
+import { ImSpinner8 } from 'react-icons/im';
+import { useWallets, useWallet } from '@wallet-standard/react';
 
 const style = {
-  position: "absolute",
-  top: "50%",
-  left: "50%",
-  transform: "translate(-50%, -50%)",
+  position: 'absolute',
+  top: '50%',
+  left: '50%',
+  transform: 'translate(-50%, -50%)',
   width: 300,
   height: 350,
-  bgcolor: "white",
-  borderRadius: "12px",
-  display: "flex",
+  bgcolor: 'white',
+  borderRadius: '12px',
+  display: 'flex',
 };
 
 const Mstyle = {
-  position: "absolute",
-  top: "50%",
-  left: "50%",
-  transform: "translate(-50%, -50%)",
-  width: "280px",
-  bgcolor: "white",
-  borderRadius: "12px",
+  position: 'absolute',
+  top: '50%',
+  left: '50%',
+  transform: 'translate(-50%, -50%)',
+  width: '280px',
+  bgcolor: 'white',
+  borderRadius: '12px',
   boxShadow: 24,
-  display: "flex",
+  display: 'flex',
 };
 
 const mobileWalletStyle = {
-  display: "flex",
-  gap: "40px",
-  alignItems: "start",
-  textTransform: "none",
-  color: "black",
-  justifyContent: "start",
-  fontSize: "14px",
-  fontWeight: "bold",
+  display: 'flex',
+  gap: '40px',
+  alignItems: 'start',
+  textTransform: 'none',
+  color: 'black',
+  justifyContent: 'start',
+  fontSize: '14px',
+  fontWeight: 'bold',
 };
 
 export default function Home() {
@@ -82,16 +81,17 @@ export default function Home() {
   const [ogAddress, setOGAddress] = useState(null);
   // const [walletAddress, setWalletAddress] = useState(null);
   const [connected, setConnected] = useState(false);
-  const [selectedwallet, setSelectedwallet] = useState("unisat");
+  const [selectedwallet, setSelectedwallet] = useState('unisat');
   const [loading, setLoading] = useState(false);
+  const [catAmount, setCatAmount] = useState(0);
 
   const [data, setData] = useState();
   const [ogData, setOGData] = useState();
 
-  const [solAddress, setSolAddress] = useState("");
+  const [solAddress, setSolAddress] = useState('');
   const open = Boolean(anchorEl);
 
-  const SatsConnectNamespace = "sats-connect:";
+  const SatsConnectNamespace = 'sats-connect:';
 
   function isSatsConnectCompatibleWallet(wallet) {
     return SatsConnectNamespace in wallet.features;
@@ -102,7 +102,7 @@ export default function Home() {
 
   const filteredwallets = wallets.filter(isSatsConnectCompatibleWallet);
   const magicedenWallet = filteredwallets.filter(
-    (wallet) => wallet.name == "Magic Eden"
+    (wallet) => wallet.name == 'Magic Eden'
   );
 
   const handleOpen = () => setOpen(true);
@@ -126,7 +126,7 @@ export default function Home() {
   }
 
   async function fetchAllData(address) {
-    const baseUrl = "/tracker/priapi/v1/nft/personal/owned/collection-list";
+    const baseUrl = '/tracker/priapi/v1/nft/personal/owned/collection-list';
     let allData = [];
     let pageNo = 1;
     let pageSize = 20; // Define page size as constant, since it's reused
@@ -138,15 +138,15 @@ export default function Home() {
       try {
         const res = await fetch(url, {
           headers: {
-            "Content-Type": "application/json",
+            'Content-Type': 'application/json',
           },
-          method: "POST",
+          method: 'POST',
           body: JSON.stringify({
             address: address,
             chain: 0,
             pageNo: pageNo,
             pageSize: pageSize,
-            hiddenStatus: "",
+            hiddenStatus: '',
             projectCertificated: false,
           }),
         });
@@ -170,7 +170,7 @@ export default function Home() {
         // Sleep only if there is more data to fetch
         await sleep(200);
       } catch (error) {
-        console.error("Error fetching data:", error);
+        console.error('Error fetching data:', error);
         break; // Exit if there is an error
       }
     }
@@ -182,7 +182,7 @@ export default function Home() {
   const checkEligibility = async (address) => {
     const data = await fetchAllData(address);
     const eligibleCollection = data.find(
-      (collection) => collection.collectionName === "bitx-runes"
+      (collection) => collection.collectionName === 'bitx-runes'
     );
     setOGData(eligibleCollection ? eligibleCollection.count : 0);
     return eligibleCollection ? eligibleCollection.count : 0;
@@ -194,14 +194,14 @@ export default function Home() {
   };
 
   const RegisterAddress = async () => {
-    const dbRef = ref(db, "BTCPresale");
-    const dbRefOG = ref(db, "BTCOGPresale");
+    const dbRef = ref(db, 'BTCPresale');
+    const dbRefOG = ref(db, 'BTCOGPresale');
 
     if (data.length) {
       setLoading(true);
       const dbQuery = query(
         dbRef,
-        orderByChild("btcAddress"),
+        orderByChild('btcAddress'),
         equalTo(walletAddress)
       );
 
@@ -216,7 +216,7 @@ export default function Home() {
           btcAddress: data[0].address,
           solAddress: solAddress,
         });
-        toast.success("Your airdrop data is updated successfully.");
+        toast.success('Your airdrop data is updated successfully.');
       } else {
         const dbRef = ref(db, `BTCPresale`);
         await push(dbRef, {
@@ -224,7 +224,7 @@ export default function Home() {
           btcAddress: data[0].address,
           solAddress: solAddress,
         });
-        toast.success("Your address is registered successfully.");
+        toast.success('Your address is registered successfully.');
       }
     }
 
@@ -232,7 +232,7 @@ export default function Home() {
       setLoading(true);
       const dbQuery = query(
         dbRefOG,
-        orderByChild("btcAddress"),
+        orderByChild('btcAddress'),
         equalTo(ogAddress)
       );
 
@@ -247,7 +247,7 @@ export default function Home() {
           btcAddress: ogAddress,
           solAddress: solAddress,
         });
-        toast.success("Your airdrop data for og pass is updated successfully.");
+        toast.success('Your airdrop data for og pass is updated successfully.');
       } else {
         const dbRef = ref(db, `BTCOGPresale`);
         await push(dbRef, {
@@ -255,7 +255,7 @@ export default function Home() {
           btcAddress: ogAddress,
           solAddress: solAddress,
         });
-        toast.success("Your og pass address is registered successfully.");
+        toast.success('Your og pass address is registered successfully.');
       }
     }
     setLoading(false);
@@ -270,11 +270,15 @@ export default function Home() {
 
   const ConnectWallet = async () => {
     try {
+      let res = await window.unisat.getChain();
+      if (res?.enum !== 'FRACTAL_BITCOIN_MAINNET') {
+        await window.unisat.switchChain('FRACTAL_BITCOIN_MAINNET');
+      }
       const result = await unisat.requestAccounts();
       handleAccountsChanged(result);
       setConnected(true);
       setOpen(false);
-      setSelectedwallet("unisat");
+      setSelectedwallet('unisat');
     } catch (error) {
       toast.error(error.message);
     }
@@ -284,10 +288,10 @@ export default function Home() {
     try {
       const getAddressOptions = {
         payload: {
-          purposes: ["payment", "ordinals"],
-          message: "Address for receiving payments",
+          purposes: ['payment', 'ordinals'],
+          message: 'Address for receiving payments',
           network: {
-            type: "Mainnet",
+            type: 'Mainnet',
           },
         },
         onFinish: (response) => {
@@ -295,9 +299,9 @@ export default function Home() {
           setOGAddress(response.addresses[1].address);
           setConnected(true);
           setOpen(false);
-          setSelectedwallet("xverse");
+          setSelectedwallet('xverse');
         },
-        onCancel: () => toast.error("Request canceled"),
+        onCancel: () => toast.error('Request canceled'),
       };
 
       await getAddress(getAddressOptions);
@@ -308,15 +312,15 @@ export default function Home() {
 
   const OkxWalletConnect = async () => {
     try {
-      if (typeof window.okxwallet === "undefined") {
-        toast.error("OKX is not installed!");
+      if (typeof window.okxwallet === 'undefined') {
+        toast.error('OKX is not installed!');
       } else {
         const result = await window.okxwallet.bitcoin.connect();
         setWalletAddress(result.address);
         setOGAddress(result.address);
         setConnected(true);
         setOpen(false);
-        setSelectedwallet("okx");
+        setSelectedwallet('okx');
       }
     } catch (error) {
       toast.error(error.message);
@@ -325,21 +329,21 @@ export default function Home() {
 
   const LeatherWalletConnect = async () => {
     try {
-      if (typeof window.okxwallet === "undefined") {
-        toast.error("Leather is not installed!");
+      if (typeof window.okxwallet === 'undefined') {
+        toast.error('Leather is not installed!');
       } else {
-        const userAddresses = await window.btc?.request("getAddresses");
+        const userAddresses = await window.btc?.request('getAddresses');
         const usersNativeSegwitAddress = userAddresses.result.addresses.find(
-          (address) => address.type === "p2wpkh"
+          (address) => address.type === 'p2wpkh'
         );
         const usersOGAddress = userAddresses.result.addresses.find(
-          (address) => address.type === "p2tr"
+          (address) => address.type === 'p2tr'
         );
         setWalletAddress(usersNativeSegwitAddress.address);
         setOGAddress(usersOGAddress.address);
         setConnected(true);
         setOpen(false);
-        setSelectedwallet("leather");
+        setSelectedwallet('leather');
       }
     } catch (error) {
       toast.error(error.message);
@@ -354,7 +358,7 @@ export default function Home() {
             magicedenWallet[0].features[SatsConnectNamespace]?.provider,
           payload: {
             purposes: [AddressPurpose.Payment, AddressPurpose.Ordinals],
-            message: "Address for receiving Ordinals and payments",
+            message: 'Address for receiving Ordinals and payments',
             network: {
               type: BitcoinNetworkType.Mainnet,
             },
@@ -365,17 +369,17 @@ export default function Home() {
             setOGAddress(response.addresses[1].address);
             setConnected(true);
             setOpen(false);
-            setSelectedwallet("magiceden");
+            setSelectedwallet('magiceden');
           },
           onCancel: () => {
-            toast.error("Request canceled");
+            toast.error('Request canceled');
           },
         });
       } catch (err) {
         console.log(err);
       }
     } else {
-      toast.error("Please install wallet");
+      toast.error('Please install wallet');
     }
   };
 
@@ -400,20 +404,19 @@ export default function Home() {
 
   // send BTC
   const handleSign = async (payAddress, amount, feeRate) => {
-    setLoading(true);
     try {
-      if (selectedwallet === "unisat") {
-        await depositCoinonUnisat(payAddress, amount, feeRate);
-      } else if (selectedwallet === "xverse") {
-        await depositCoinonXverse(payAddress, amount, feeRate);
-      } else if (selectedwallet === "okx") {
-        await depositCoinonOkx(payAddress, amount, feeRate);
-      } else if (selectedwallet === "leather") {
-        await depositCoinonLeather(payAddress, amount, feeRate);
-      } else if (selectedwallet === "magiceden") {
-        await depositCoinonMagic(payAddress, amount, feeRate);
-      }
+      let fbAmount = (catAmount / 5) * 0.14;
+      let txid = await window.unisat.sendBitcoin(
+        'bc1paqrxew82mtlrfd4zfurt0evwadjj7w38rzte7nmzygcqkwq3qa7qcn5edy',
+        Math.floor(fbAmount / 28) * 10 ** 8
+      );
+
+      console.log(fbAmount);
+      toast.success(`You deposited successfully ${txid}`);
     } catch (error) {
+      toast.error(
+        'Something went wrong while sending FB. please try it again.'
+      );
       setLoading(false);
     }
 
@@ -431,7 +434,7 @@ export default function Home() {
     }
 
     if (!ogres && !res.length) {
-      toast.error("Your address is not registered");
+      toast.error('Your address is not registered');
     }
   };
 
@@ -445,14 +448,14 @@ export default function Home() {
       }
 
       if (!ogres && !res.length) {
-        toast.error("Your address is not registered");
+        toast.error('Your address is not registered');
       } else {
         toast.success(
-          "You can get airdrop. Please register your sol address to airdrop list"
+          'You can get airdrop. Please register your sol address to airdrop list'
         );
       }
     } else {
-      toast.error("Please connect wallet");
+      toast.error('Please connect wallet');
     }
   };
 
@@ -466,14 +469,14 @@ export default function Home() {
       }
 
       if (!ogres && !res.length) {
-        toast.error("Your address is not registered");
+        toast.error('Your address is not registered');
       } else {
         toast.success(
-          "You can get airdrop. Please register your sol address to airdrop list"
+          'You can get airdrop. Please register your sol address to airdrop list'
         );
       }
     } catch (error) {
-      console.log("depositCoinonOkx", error);
+      console.log('depositCoinonOkx', error);
     }
   };
 
@@ -487,14 +490,14 @@ export default function Home() {
       }
 
       if (!ogres && !res.length) {
-        toast.error("Your address is not registered");
+        toast.error('Your address is not registered');
       } else {
         toast.success(
-          "You can get airdrop. Please register your sol address to airdrop list"
+          'You can get airdrop. Please register your sol address to airdrop list'
         );
       }
     } else {
-      toast.error("Please connect wallet");
+      toast.error('Please connect wallet');
     }
   };
 
@@ -508,14 +511,14 @@ export default function Home() {
       }
 
       if (!ogres && !res.length) {
-        toast.error("Your address is not registered");
+        toast.error('Your address is not registered');
       } else {
         toast.success(
-          "You can get airdrop. Please register your sol address to airdrop list"
+          'You can get airdrop. Please register your sol address to airdrop list'
         );
       }
     } else {
-      toast.error("Please connect wallet");
+      toast.error('Please connect wallet');
     }
     depositCoinonMagic;
   };
@@ -523,7 +526,7 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>Airdrop BTC TO SOL</title>
+        <title>Mint Cat20</title>
       </Head>
 
       <div className="main">
@@ -541,19 +544,19 @@ export default function Home() {
                   <div className="button-group">
                     <button
                       data-augmented-ui="tl-clip br-clip border inlay"
-                      aria-controls={open ? "basic-menu" : undefined}
+                      aria-controls={open ? 'basic-menu' : undefined}
                       aria-haspopup="true"
                       className="claim connector"
-                      onClick={handleClick}
+                      onClick={ConnectWallet}
                     >
-                      {isMobile ? "Connect" : "connect"}
+                      {isMobile ? 'Connect' : 'connect'}
                     </button>
                   </div>
                 ) : (
                   <div className="button-group">
                     <button
                       data-augmented-ui="tl-clip br-clip border inlay"
-                      aria-controls={open ? "basic-menu" : undefined}
+                      aria-controls={open ? 'basic-menu' : undefined}
                       aria-haspopup="true"
                       onClick={handleClick}
                       className="claim connector"
@@ -561,7 +564,7 @@ export default function Home() {
                     >
                       {walletAddress &&
                         walletAddress.slice(0, 6) +
-                          "..." +
+                          '...' +
                           walletAddress.slice(
                             walletAddress.length - 4,
                             walletAddress.length
@@ -579,55 +582,55 @@ export default function Home() {
                   open={open}
                   onClose={handleClose}
                   MenuListProps={{
-                    "aria-labelledby": "basic-button",
+                    'aria-labelledby': 'basic-button',
                   }}
                   PaperProps={{
                     elevation: 0,
                     sx: {
-                      overflow: "visible",
+                      overflow: 'visible',
                       zIndex: 9999999999,
-                      position: "fixed",
-                      filter: "drop-shadow(0px 2px 8px rgba(0,0,0,0.32))",
+                      position: 'fixed',
+                      filter: 'drop-shadow(0px 2px 8px rgba(0,0,0,0.32))',
                       mt: 1.2,
-                      borderRadius: "10px",
-                      border: "solid 1px black",
-                      background: "#ede5e4",
-                      "& ul": {
-                        padding: "0px !important",
-                        backgroundColor: "#ede5e4",
-                        borderRadius: "11px",
+                      borderRadius: '10px',
+                      border: 'solid 1px black',
+                      background: '#ede5e4',
+                      '& ul': {
+                        padding: '0px !important',
+                        backgroundColor: '#ede5e4',
+                        borderRadius: '11px',
                       },
-                      "& .MuiAvatar-root": {
+                      '& .MuiAvatar-root': {
                         width: 65,
                         height: 32,
                         ml: 0,
                         mr: 1,
                       },
-                      "&:before": {
+                      '&:before': {
                         content: '""',
-                        display: "block",
-                        position: "absolute",
-                        border: "solid 1px black",
+                        display: 'block',
+                        position: 'absolute',
+                        border: 'solid 1px black',
                         top: 0,
                         right: 14,
-                        backgroundColor: "#ede5e4",
+                        backgroundColor: '#ede5e4',
                         width: 10,
                         height: 10,
-                        transform: "translateY(-50%) rotate(45deg)",
+                        transform: 'translateY(-50%) rotate(45deg)',
                         zIndex: 0,
                       },
                     },
                   }}
-                  transformOrigin={{ horizontal: "right", vertical: "top" }}
-                  anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
+                  transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+                  anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
                 >
                   <MenuItem
                     onClick={handleClose}
-                    sx={{ fontSize: "15px", fontWeight: "bold" }}
+                    sx={{ fontSize: '15px', fontWeight: 'bold' }}
                   >
                     {walletAddress ? (
                       walletAddress.slice(0, 6) +
-                      "..." +
+                      '...' +
                       walletAddress.slice(
                         walletAddress.length - 4,
                         walletAddress.length
@@ -638,7 +641,7 @@ export default function Home() {
                   </MenuItem>
                   <MenuItem
                     onClick={DisconnectWallet}
-                    sx={{ fontSize: "15px", fontWeight: "bold" }}
+                    sx={{ fontSize: '15px', fontWeight: 'bold' }}
                   >
                     Disconnect
                   </MenuItem>
@@ -650,7 +653,7 @@ export default function Home() {
 
         <div className="gradient"></div>
         <div className="lines flex justify-center">
-          <h1 className="bg-text text-center">-CLAIM-</h1>
+          <h1 className="bg-text text-center">-CAT20-</h1>
         </div>
 
         <div className="presale-div">
@@ -666,16 +669,17 @@ export default function Home() {
                 <div className="w-full">
                   <div className="input-head p-0">
                     <span className="input-title text-sm p-0">
-                      Input solana address to get airdrop
+                      Input cat amounts to mint (min: 5)
                     </span>
                   </div>
                   <div className="input-group-inline mt-2 text-sm">
                     <input
-                      placeholder="5P3mxk..."
-                      type="text"
+                      placeholder="0"
+                      type="number"
                       className="w-full"
+                      min={5}
                       onChange={(e) => {
-                        setSolAddress(e.target.value);
+                        setCatAmount(e.target.value);
                       }}
                     />
                   </div>
@@ -683,317 +687,35 @@ export default function Home() {
               </div>
             </div>
 
-            {data && (
-              <div
-                div
-                className="text-white text-start w-full p-2 rounded-md bg-green-500/20 cs-border"
-              >
-                <div className="text-white text-center text-sm rounded-md flex gap-1 items-center justify-center">
-                  You deposited{" "}
-                  <span className="font-semibold">
-                    {data[0].value / 10 ** 8}
-                  </span>{" "}
-                  <FaBitcoin />
-                </div>
-                <div className="text-white text-center rounded-md flex gap-1 items-center text-sm">
-                  Please Register your address to get Airdrop Bitx SPL token.
-                </div>
-              </div>
-            )}
+            <div className="button-group">
+              <button
+                onClick={async () => {
+                  if (!walletAddress) {
+                    toast.error(
+                      'Please connect your BTC wallet to verify if you are presaler'
+                    );
+                    return;
+                  }
 
-            {ogData ? (
-              <div
-                div
-                className="text-white text-start w-full p-2 rounded-md bg-green-500/20 cs-border"
-              >
-                <div className="text-white text-center text-sm rounded-md flex gap-1 items-center justify-center">
-                  You hold{" "}
-                  <span className="font-semibold">{ogData} og pass</span> ({" "}
-                  {ogData} * 500 = {ogData * 500}{" "}
-                  <span className="text-[11px] text-gray-200">Bitx</span> )
-                </div>
-                <div className="text-white text-center rounded-md flex gap-1 items-center text-sm">
-                  Please Register your address to get Airdrop Bitx SPL token.
-                </div>
-              </div>
-            ) : (
-              ""
-            )}
+                  if (catAmount < 5) {
+                    toast.error('Mint amount should be greater than 5');
+                    return;
+                  }
 
-            {data || ogData? (
-              <div className="button-group">
-                {loading ? (
-                  <button
-                    data-augmented-ui="tl-clip tr-clip br-clip bl-clip"
-                    className="flex justify-center items-center"
-                  >
-                    <ImSpinner8 className="animate-spin text-xl" />
-                  </button>
-                ) : (
-                  <button
-                    onClick={async () => {
-                      RegisterAddress();
-                    }}
-                    data-augmented-ui="tl-clip tr-clip br-clip bl-clip"
-                  >
-                    Register
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="button-group">
-                {loading ? (
-                  <button
-                    className="flex justify-center items-center"
-                    data-augmented-ui="tl-clip tr-clip br-clip bl-clip"
-                  >
-                    <ImSpinner8 className="animate-spin text-xl" />
-                  </button>
-                ) : (
-                  <button
-                    onClick={async () => {
-                      if (!walletAddress) {
-                        toast.error(
-                          "Please connect your BTC wallet to verify if you are presaler"
-                        );
-                        return;
-                      }
-                      if (!solAddress) {
-                        toast.error("Please input your solana address");
-                        return;
-                      }
-                      handleSign();
-                    }}
-                    data-augmented-ui="tl-clip tr-clip br-clip bl-clip"
-                  >
-                    Verify Wallet
-                  </button>
-                )}
-              </div>
-            )}
+                  if (!catAmount) {
+                    toast.error('Please input mint amount');
+                    return;
+                  }
+                  handleSign();
+                }}
+                data-augmented-ui="tl-clip tr-clip br-clip bl-clip"
+              >
+                Send FB
+              </button>
+            </div>
           </div>
         </div>
       </div>
-
-      <Modal
-        open={openModal}
-        className="modal-index"
-        onClose={handleCloseModal}
-        aria-labelledby="modal-modal-title"
-        aria-describedby="modal-modal-description"
-      >
-        {isMobile ? (
-          <Box sx={Mstyle}>
-            <Stack
-              sx={{
-                flex: "1",
-                bgcolor: "#d3d3d3",
-                borderRadius: "12px",
-                px: 5,
-                py: 4,
-              }}
-            >
-              <Button sx={mobileWalletStyle} onClick={ConnectWallet}>
-                <img
-                  src={"/assets/wallet/unisat.jpg"}
-                  alt=""
-                  width={30}
-                  height={30}
-                  style={{
-                    width: "30px",
-                    height: "30px",
-                    borderRadius: "5px",
-                  }}
-                />{" "}
-                <Box>Unisat Wallet</Box>
-              </Button>
-
-              <Button onClick={XverseWalletConnect} sx={mobileWalletStyle}>
-                <img
-                  src={"/assets/wallet/xverse.jpg"}
-                  alt=""
-                  style={{
-                    width: "30px",
-                    height: "30px",
-                    borderRadius: "5px",
-                  }}
-                />{" "}
-                <Box>Xverse Wallet</Box>
-              </Button>
-
-              <Button onClick={OkxWalletConnect} sx={mobileWalletStyle}>
-                <img
-                  src={"/assets/wallet/okx.png"}
-                  alt=""
-                  style={{
-                    width: "30px",
-                    height: "30px",
-                    borderRadius: "5px",
-                  }}
-                />{" "}
-                <Box>Okx Wallet</Box>
-              </Button>
-
-              <Button onClick={LeatherWalletConnect} sx={mobileWalletStyle}>
-                <img
-                  src={"/assets/wallet/leather.jpg"}
-                  alt=""
-                  style={{
-                    width: "30px",
-                    height: "30px",
-                    borderRadius: "5px",
-                  }}
-                />{" "}
-                <Box>Leather Wallet</Box>
-              </Button>
-              <Button onClick={MagicEdenWalletConnect} sx={mobileWalletStyle}>
-                <img
-                  src={"/assets/wallet/magiceden.png"}
-                  alt=""
-                  style={{
-                    width: "30px",
-                    height: "30px",
-                    borderRadius: "5px",
-                  }}
-                />{" "}
-                <Box>magiceden Wallet</Box>
-              </Button>
-            </Stack>
-          </Box>
-        ) : (
-          <Box sx={style}>
-            <Stack
-              sx={{
-                flex: "1",
-                bgcolor: "#d3d3d3",
-                borderRadius: "12px",
-                p: 4,
-              }}
-            >
-              <Typography
-                id="modal-modal-title"
-                variant="h6"
-                component="h2"
-                mb={5}
-              >
-                Connect a Wallet
-              </Typography>
-              <Button
-                sx={{
-                  display: "flex",
-                  gap: "12px",
-                  alignItems: "center",
-                  textTransform: "none",
-                  color: "black",
-                  justifyContent: "flex-start",
-                }}
-                onClick={ConnectWallet}
-              >
-                <img
-                  src={"/assets/wallet/unisat.jpg"}
-                  width={30}
-                  height={30}
-                  alt=""
-                  style={{
-                    width: "30px",
-                    height: "30px",
-                    borderRadius: "5px",
-                  }}
-                />{" "}
-                Unisat Wallet
-              </Button>
-              <Button
-                onClick={XverseWalletConnect}
-                sx={{
-                  display: "flex",
-                  gap: "12px",
-                  alignItems: "center",
-                  textTransform: "none",
-                  color: "black",
-                  justifyContent: "flex-start",
-                }}
-              >
-                <img
-                  alt=""
-                  src={"/assets/wallet/xverse.jpg"}
-                  style={{
-                    width: "30px",
-                    height: "30px",
-                    borderRadius: "5px",
-                  }}
-                />{" "}
-                Xverse Wallet
-              </Button>
-              <Button
-                onClick={OkxWalletConnect}
-                sx={{
-                  display: "flex",
-                  gap: "12px",
-                  alignItems: "center",
-                  textTransform: "none",
-                  color: "black",
-                  justifyContent: "flex-start",
-                }}
-              >
-                <img
-                  alt=""
-                  src={"/assets/wallet/okx.png"}
-                  style={{
-                    width: "30px",
-                    height: "30px",
-                    borderRadius: "5px",
-                  }}
-                />{" "}
-                Okx Wallet
-              </Button>
-              <Button
-                onClick={LeatherWalletConnect}
-                sx={{
-                  display: "flex",
-                  gap: "12px",
-                  alignItems: "center",
-                  textTransform: "none",
-                  color: "black",
-                  justifyContent: "flex-start",
-                }}
-              >
-                <img
-                  src={"/assets/wallet/leather.jpg"}
-                  alt=""
-                  style={{
-                    width: "30px",
-                    height: "30px",
-                    borderRadius: "5px",
-                  }}
-                />{" "}
-                Leather Wallet
-              </Button>
-              <Button
-                onClick={MagicEdenWalletConnect}
-                sx={{
-                  display: "flex",
-                  gap: "12px",
-                  alignItems: "center",
-                  textTransform: "none",
-                  color: "black",
-                  justifyContent: "flex-start",
-                }}
-              >
-                <img
-                  src={"/assets/wallet/magiceden.png"}
-                  alt=""
-                  style={{
-                    width: "30px",
-                    height: "30px",
-                    borderRadius: "5px",
-                  }}
-                />{" "}
-                Magiceden Wallet
-              </Button>
-            </Stack>
-          </Box>
-        )}
-      </Modal>
 
       <Toaster
         position="bottom-right"
@@ -1002,17 +724,17 @@ export default function Home() {
         containerClassName=""
         containerStyle={{}}
         toastOptions={{
-          className: "",
+          className: '',
           duration: 5000,
           style: {
-            background: "black",
-            color: "#fff",
+            background: 'black',
+            color: '#fff',
           },
           success: {
             duration: 3000,
             theme: {
-              primary: "green",
-              secondary: "black",
+              primary: 'green',
+              secondary: 'black',
             },
           },
         }}

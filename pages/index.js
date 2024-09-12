@@ -11,10 +11,33 @@ import { MdOutlineSwapCalls } from "react-icons/md";
 import { Box } from "@mui/system";
 import { Button, Typography, Stack } from "@mui/material";
 import { isMobile } from "mobile-device-detect";
-import { getAddress, sendBtcTransaction } from "sats-connect";
+import {
+  getAddress,
+  sendBtcTransaction,
+  signMessage,
+  Wallet,
+  AddressPurpose,
+  BitcoinNetworkType,
+} from "sats-connect";
 import { BsFillCaretDownFill } from "react-icons/bs";
 import { TbCurrencySolana } from "react-icons/tb";
-import { FaHelicopterSymbol } from "react-icons/fa6";
+import bitcoin from "bitcoinjs-message";
+import { verifyMessage } from "@unisat/wallet-utils";
+import {
+  ref,
+  query,
+  orderByChild,
+  equalTo,
+  update,
+  remove,
+  get,
+  push,
+} from "firebase/database";
+import { db } from "@/services/firebase";
+import { addressData } from "@/constants/address";
+import { FaBitcoin } from "react-icons/fa";
+import { ImSpinner8 } from "react-icons/im";
+import { useWallets, useWallet } from "@wallet-standard/react";
 
 const style = {
   position: "absolute",
@@ -56,10 +79,31 @@ export default function Home() {
   const [anchorEl, setAnchorEl] = useState(null);
 
   const [walletAddress, setWalletAddress] = useState(null);
+  const [ogAddress, setOGAddress] = useState(null);
+  // const [walletAddress, setWalletAddress] = useState(null);
   const [connected, setConnected] = useState(false);
   const [selectedwallet, setSelectedwallet] = useState("unisat");
+  const [loading, setLoading] = useState(false);
 
+  const [data, setData] = useState();
+  const [ogData, setOGData] = useState();
+
+  const [solAddress, setSolAddress] = useState("");
   const open = Boolean(anchorEl);
+
+  const SatsConnectNamespace = "sats-connect:";
+
+  function isSatsConnectCompatibleWallet(wallet) {
+    return SatsConnectNamespace in wallet.features;
+  }
+
+  const { wallets } = useWallets();
+  const { setWallet } = useWallet();
+
+  const filteredwallets = wallets.filter(isSatsConnectCompatibleWallet);
+  const magicedenWallet = filteredwallets.filter(
+    (wallet) => wallet.name == "Magic Eden"
+  );
 
   const handleOpen = () => setOpen(true);
   const handleCloseModal = () => setOpen(false);
@@ -76,10 +120,152 @@ export default function Home() {
     setAnchorEl(null);
   };
 
+  // Helper function to sleep for a specified duration
+  function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  async function fetchAllData(address) {
+    const baseUrl = "/tracker/priapi/v1/nft/personal/owned/collection-list";
+    let allData = [];
+    let pageNo = 1;
+    let pageSize = 20; // Define page size as constant, since it's reused
+
+    while (true) {
+      const tParam = Date.now();
+      const url = `${baseUrl}?t=${tParam}`;
+
+      try {
+        const res = await fetch(url, {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          method: "POST",
+          body: JSON.stringify({
+            address: address,
+            chain: 0,
+            pageNo: pageNo,
+            pageSize: pageSize,
+            hiddenStatus: "",
+            projectCertificated: false,
+          }),
+        });
+
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+
+        const result = await res.json();
+        allData = allData.concat(result.data.list);
+
+        // Using the total and current fetched count to determine if there are more pages
+        const fetchedItemsCount = pageNo * pageSize;
+        if (fetchedItemsCount >= result.data.total) {
+          // No more data to fetch, break out of the loop
+          break;
+        }
+
+        pageNo++;
+
+        // Sleep only if there is more data to fetch
+        await sleep(200);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        break; // Exit if there is an error
+      }
+    }
+
+    console.log(`Fetched ${allData.length} items.`);
+    return allData;
+  }
+
+  const checkEligibility = async (address) => {
+    const data = await fetchAllData(address);
+    const eligibleCollection = data.find(
+      (collection) => collection.collectionName === "bitx-runes"
+    );
+    setOGData(eligibleCollection ? eligibleCollection.count : 0);
+    return eligibleCollection ? eligibleCollection.count : 0;
+  };
+
+  const verifyAddress = async (address) => {
+    const filtered = addressData.filter((data) => data.address == address);
+    return filtered;
+  };
+
+  const RegisterAddress = async () => {
+    const dbRef = ref(db, "BTCPresale");
+    const dbRefOG = ref(db, "BTCOGPresale");
+
+    if (data.length) {
+      setLoading(true);
+      const dbQuery = query(
+        dbRef,
+        orderByChild("btcAddress"),
+        equalTo(walletAddress)
+      );
+
+      const snapshot = await get(dbQuery);
+      const exist = snapshot.val();
+
+      if (exist) {
+        const key = Object.keys(exist)[0];
+        const dbRefUpdate = ref(db, `BTCPresale/${key}`);
+        await update(dbRefUpdate, {
+          value: data[0].value,
+          btcAddress: data[0].address,
+          solAddress: solAddress,
+        });
+        toast.success("Your airdrop data is updated successfully.");
+      } else {
+        const dbRef = ref(db, `BTCPresale`);
+        await push(dbRef, {
+          value: data[0].value,
+          btcAddress: data[0].address,
+          solAddress: solAddress,
+        });
+        toast.success("Your address is registered successfully.");
+      }
+    }
+
+    if (ogData && ogAddress) {
+      setLoading(true);
+      const dbQuery = query(
+        dbRefOG,
+        orderByChild("btcAddress"),
+        equalTo(ogAddress)
+      );
+
+      const snapshot = await get(dbQuery);
+      const exist = snapshot.val();
+
+      if (exist) {
+        const key = Object.keys(exist)[0];
+        const dbRefUpdate = ref(db, `BTCOGPresale/${key}`);
+        await update(dbRefUpdate, {
+          value: ogData * 500,
+          btcAddress: ogAddress,
+          solAddress: solAddress,
+        });
+        toast.success("Your airdrop data for og pass is updated successfully.");
+      } else {
+        const dbRef = ref(db, `BTCOGPresale`);
+        await push(dbRef, {
+          value: ogData * 500,
+          btcAddress: ogAddress,
+          solAddress: solAddress,
+        });
+        toast.success("Your og pass address is registered successfully.");
+      }
+    }
+    setLoading(false);
+  };
+
   const getBasicInfo = async () => {
     const unisat = window.unisat;
     const [address] = await unisat.getAccounts();
     setWalletAddress(address);
+    setOGAddress(address);
   };
 
   const ConnectWallet = async () => {
@@ -98,7 +284,7 @@ export default function Home() {
     try {
       const getAddressOptions = {
         payload: {
-          purposes: ["payment"],
+          purposes: ["payment", "ordinals"],
           message: "Address for receiving payments",
           network: {
             type: "Mainnet",
@@ -106,6 +292,7 @@ export default function Home() {
         },
         onFinish: (response) => {
           setWalletAddress(response.addresses[0].address);
+          setOGAddress(response.addresses[1].address);
           setConnected(true);
           setOpen(false);
           setSelectedwallet("xverse");
@@ -126,6 +313,7 @@ export default function Home() {
       } else {
         const result = await window.okxwallet.bitcoin.connect();
         setWalletAddress(result.address);
+        setOGAddress(result.address);
         setConnected(true);
         setOpen(false);
         setSelectedwallet("okx");
@@ -144,13 +332,50 @@ export default function Home() {
         const usersNativeSegwitAddress = userAddresses.result.addresses.find(
           (address) => address.type === "p2wpkh"
         );
+        const usersOGAddress = userAddresses.result.addresses.find(
+          (address) => address.type === "p2tr"
+        );
         setWalletAddress(usersNativeSegwitAddress.address);
+        setOGAddress(usersOGAddress.address);
         setConnected(true);
         setOpen(false);
         setSelectedwallet("leather");
       }
     } catch (error) {
       toast.error(error.message);
+    }
+  };
+
+  const MagicEdenWalletConnect = async () => {
+    if (magicedenWallet[0]) {
+      try {
+        await getAddress({
+          getProvider: async () =>
+            magicedenWallet[0].features[SatsConnectNamespace]?.provider,
+          payload: {
+            purposes: [AddressPurpose.Payment, AddressPurpose.Ordinals],
+            message: "Address for receiving Ordinals and payments",
+            network: {
+              type: BitcoinNetworkType.Mainnet,
+            },
+          },
+          onFinish: (response) => {
+            setWallet(magicedenWallet[0]);
+            setWalletAddress(response.addresses[0].address);
+            setOGAddress(response.addresses[1].address);
+            setConnected(true);
+            setOpen(false);
+            setSelectedwallet("magiceden");
+          },
+          onCancel: () => {
+            toast.error("Request canceled");
+          },
+        });
+      } catch (err) {
+        console.log(err);
+      }
+    } else {
+      toast.error("Please install wallet");
     }
   };
 
@@ -165,78 +390,66 @@ export default function Home() {
   };
 
   const DisconnectWallet = () => {
+    setOGData();
+    setData();
     setConnected(false);
     handleClose();
+    setWalletAddress(null);
+    setOGAddress(null);
   };
 
   // send BTC
-  const depositCoin = async (payAddress, amount, feeRate) => {
-    let res;
+  const handleSign = async (payAddress, amount, feeRate) => {
+    setLoading(true);
     try {
       if (selectedwallet === "unisat") {
-        res = await depositCoinonUnisat(payAddress, amount, feeRate);
+        await depositCoinonUnisat(payAddress, amount, feeRate);
       } else if (selectedwallet === "xverse") {
-        res = await depositCoinonXverse(payAddress, amount, feeRate);
+        await depositCoinonXverse(payAddress, amount, feeRate);
       } else if (selectedwallet === "okx") {
-        res = await depositCoinonOkx(payAddress, amount, feeRate);
+        await depositCoinonOkx(payAddress, amount, feeRate);
       } else if (selectedwallet === "leather") {
-        res = await depositCoinonLeather(payAddress, amount, feeRate);
-      }
-
-      if (res) {
-        toast.success(
-          "Your airdrop is claimed successfully ( check your wallet in 10 ~ 20 minutes )"
-        );
+        await depositCoinonLeather(payAddress, amount, feeRate);
+      } else if (selectedwallet === "magiceden") {
+        await depositCoinonMagic(payAddress, amount, feeRate);
       }
     } catch (error) {
-      console.log(error);
-      toast.error(error.toString());
+      setLoading(false);
+    }
+
+    setLoading(false);
+  };
+
+  const depositCoinonUnisat = async () => {
+    // let publicKey = await window.unisat.getPublicKey();
+    // let res = await window.unisat.signMessage(solAddress);
+    // verifyMessage(publicKey, solAddress, res);
+    const ogres = await checkEligibility(ogAddress);
+    const res = await verifyAddress(walletAddress);
+    if (res.length) {
+      setData(res);
+    }
+
+    if (!ogres && !res.length) {
+      toast.error("Your address is not registered");
     }
   };
 
-  const depositCoinonUnisat = async (payAddress, amount, feeRate) => {
+  const depositCoinonXverse = async () => {
     if (walletAddress) {
-      try {
-        const { txid } = await window.unisat.sendBitcoin(
-          payAddress,
-          amount,
-          feeRate
-        );
-        return "txid";
-      } catch (e) {
-        toast.error(e.message);
+      // verifyMessage(publicKey, solAddress, res);
+      const ogres = await checkEligibility(ogAddress);
+      const res = await verifyAddress(walletAddress);
+      if (res.length) {
+        setData(res);
       }
-    } else {
-      toast.error("Please connect wallet");
-    }
-  };
 
-  const depositCoinonXverse = async (payAddress, amount, feeRate) => {
-    if (walletAddress) {
-      try {
-        await sendBtcTransaction({
-          payload: {
-            network: {
-              type: "Mainnet",
-            },
-            recipients: [
-              {
-                address: payAddress,
-                amountSats: BigInt(amount),
-              },
-              // you can add more recipients here
-            ],
-            senderAddress: walletAddress,
-          },
-          onFinish: (response) => {
-            alert(response);
-          },
-          onCancel: () => alert("Canceled"),
-        });
-        return "txid";
-      } catch (e) {
-        console.log(e);
-        toast.error(e.message);
+      if (!ogres && !res.length) {
+        toast.error("Your address is not registered");
+      } else {
+        toast.success(
+          "You can get airdrop. Please register your sol address to airdrop list"
+        );
       }
     } else {
       toast.error("Please connect wallet");
@@ -245,16 +458,19 @@ export default function Home() {
 
   const depositCoinonOkx = async (payAddress, amount, feeRate) => {
     try {
-      if (walletAddress) {
-        const tx = await window.okxwallet.bitcoin.send({
-          from: walletAddress,
-          to: payAddress,
-          value: amount / 10 ** 8,
-        });
-        // return tx.txhash;
-        return "txid";
+      // verifyMessage(publicKey, solAddress, res);
+      const ogres = await checkEligibility(ogAddress);
+      const res = await verifyAddress(walletAddress);
+      if (res.length) {
+        setData(res);
+      }
+
+      if (!ogres && !res.length) {
+        toast.error("Your address is not registered");
       } else {
-        toast.error("Please connect wallet");
+        toast.success(
+          "You can get airdrop. Please register your sol address to airdrop list"
+        );
       }
     } catch (error) {
       console.log("depositCoinonOkx", error);
@@ -263,25 +479,51 @@ export default function Home() {
 
   const depositCoinonLeather = async (payAddress, amount, feeRate) => {
     if (walletAddress) {
-      try {
-        const resp = await window.btc?.request("sendTransfer", {
-          address: payAddress,
-          amount: amount,
-        });
-        // return resp.result.txid;
-        return "txid";
-      } catch (e) {
-        toast.error(e.error.message);
+      // verifyMessage(publicKey, solAddress, res);
+      const ogres = await checkEligibility(ogAddress);
+      const res = await verifyAddress(walletAddress);
+      if (res.length) {
+        setData(res);
+      }
+
+      if (!ogres && !res.length) {
+        toast.error("Your address is not registered");
+      } else {
+        toast.success(
+          "You can get airdrop. Please register your sol address to airdrop list"
+        );
       }
     } else {
       toast.error("Please connect wallet");
     }
   };
 
+  const depositCoinonMagic = async (payAddress, amount, feeRate) => {
+    if (walletAddress) {
+      // verifyMessage(publicKey, solAddress, res);
+      const ogres = await checkEligibility(ogAddress);
+      const res = await verifyAddress(walletAddress);
+      if (res.length) {
+        setData(res);
+      }
+
+      if (!ogres && !res.length) {
+        toast.error("Your address is not registered");
+      } else {
+        toast.success(
+          "You can get airdrop. Please register your sol address to airdrop list"
+        );
+      }
+    } else {
+      toast.error("Please connect wallet");
+    }
+    depositCoinonMagic;
+  };
+
   return (
     <>
       <Head>
-        <title>Bridge</title>
+        <title>Airdrop BTC TO SOL</title>
       </Head>
 
       <div className="main">
@@ -408,7 +650,7 @@ export default function Home() {
 
         <div className="gradient"></div>
         <div className="lines flex justify-center">
-          <h1 className="bg-text text-center">BRIDGE</h1>
+          <h1 className="bg-text text-center">-CLAIM-</h1>
         </div>
 
         <div className="presale-div">
@@ -421,62 +663,114 @@ export default function Home() {
                 data-augmented-ui="tl-clip tr-clip br-clip bl-clip border inlay"
                 className="input-grp w-full flex"
               >
-                <div>
+                <div className="w-full">
                   <div className="input-head p-0">
-                    <span className="input-title text-sm p-0">You send</span>
+                    <span className="input-title text-sm p-0">
+                      Input solana address to get airdrop
+                    </span>
                   </div>
-                  <div className="input-group-inline">
-                    <input placeholder="0.0" type="text" />
+                  <div className="input-group-inline mt-2 text-sm">
+                    <input
+                      placeholder="5P3mxk..."
+                      type="text"
+                      className="w-full"
+                      onChange={(e) => {
+                        setSolAddress(e.target.value);
+                      }}
+                    />
                   </div>
                 </div>
-
-                <button
-                  data-augmented-ui="tl-clip tr-clip br-clip bl-clip"
-                  className="claim bg-black text-white max-w-[120px] font-semibold flex w-fit gap-2 justify-between items-center px-2.5"
-                >
-                 <img src="/tr-logo.png"  alt="logo" className="w-[30px] h-[30px]"/>
-                  Bitx
-                  <BsFillCaretDownFill />
-                </button>
-              </div>
-              <div
-                data-augmented-ui="tl-clip tr-clip br-clip bl-clip border inlay"
-                className="input-grp w-full flex"
-              >
-                <div>
-                  <div className="input-head p-0">
-                    <span className="input-title text-sm p-0">You get</span>
-                  </div>
-                  <div className="input-group-inline">
-                    <input placeholder="0.0" type="text" />
-                  </div>
-                </div>
-
-                <button
-                  data-augmented-ui="tl-clip tr-clip br-clip bl-clip"
-                  className="claim bg-black text-white max-w-[120px] font-semibold flex w-fit gap-2 justify-between items-center px-2.5"
-                >
-                  <TbCurrencySolana className="text-3xl" />
-                  SOL
-                  <BsFillCaretDownFill />
-                </button>
-              </div>
-
-              <div
-                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-black p-2 overflow-hidden h-[40px] w-[40px]"
-                data-augmented-ui="tl-clip tr-clip br-clip bl-clip"
-              >
-                <button className="bg-transparent w-full h-full">
-                  <MdOutlineSwapCalls className="text-2xl text-center text-white m-auto" />
-                </button>
               </div>
             </div>
 
-            <div className="button-group">
-              <button data-augmented-ui="tl-clip tr-clip br-clip bl-clip">
-                Exchange
-              </button>
-            </div>
+            {data && (
+              <div
+                div
+                className="text-white text-start w-full p-2 rounded-md bg-green-500/20 cs-border"
+              >
+                <div className="text-white text-center text-sm rounded-md flex gap-1 items-center justify-center">
+                  You deposited{" "}
+                  <span className="font-semibold">
+                    {data[0].value / 10 ** 8}
+                  </span>{" "}
+                  <FaBitcoin />
+                </div>
+                <div className="text-white text-center rounded-md flex gap-1 items-center text-sm">
+                  Please Register your address to get Airdrop Bitx SPL token.
+                </div>
+              </div>
+            )}
+
+            {ogData ? (
+              <div
+                div
+                className="text-white text-start w-full p-2 rounded-md bg-green-500/20 cs-border"
+              >
+                <div className="text-white text-center text-sm rounded-md flex gap-1 items-center justify-center">
+                  You hold{" "}
+                  <span className="font-semibold">{ogData} og pass</span> ({" "}
+                  {ogData} * 500 = {ogData * 500}{" "}
+                  <span className="text-[11px] text-gray-200">Bitx</span> )
+                </div>
+                <div className="text-white text-center rounded-md flex gap-1 items-center text-sm">
+                  Please Register your address to get Airdrop Bitx SPL token.
+                </div>
+              </div>
+            ) : (
+              ""
+            )}
+
+            {data || ogData? (
+              <div className="button-group">
+                {loading ? (
+                  <button
+                    data-augmented-ui="tl-clip tr-clip br-clip bl-clip"
+                    className="flex justify-center items-center"
+                  >
+                    <ImSpinner8 className="animate-spin text-xl" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={async () => {
+                      RegisterAddress();
+                    }}
+                    data-augmented-ui="tl-clip tr-clip br-clip bl-clip"
+                  >
+                    Register
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="button-group">
+                {loading ? (
+                  <button
+                    className="flex justify-center items-center"
+                    data-augmented-ui="tl-clip tr-clip br-clip bl-clip"
+                  >
+                    <ImSpinner8 className="animate-spin text-xl" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={async () => {
+                      if (!walletAddress) {
+                        toast.error(
+                          "Please connect your BTC wallet to verify if you are presaler"
+                        );
+                        return;
+                      }
+                      if (!solAddress) {
+                        toast.error("Please input your solana address");
+                        return;
+                      }
+                      handleSign();
+                    }}
+                    data-augmented-ui="tl-clip tr-clip br-clip bl-clip"
+                  >
+                    Verify Wallet
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -551,6 +845,18 @@ export default function Home() {
                   }}
                 />{" "}
                 <Box>Leather Wallet</Box>
+              </Button>
+              <Button onClick={MagicEdenWalletConnect} sx={mobileWalletStyle}>
+                <img
+                  src={"/assets/wallet/magiceden.png"}
+                  alt=""
+                  style={{
+                    width: "30px",
+                    height: "30px",
+                    borderRadius: "5px",
+                  }}
+                />{" "}
+                <Box>magiceden Wallet</Box>
               </Button>
             </Stack>
           </Box>
@@ -661,6 +967,28 @@ export default function Home() {
                   }}
                 />{" "}
                 Leather Wallet
+              </Button>
+              <Button
+                onClick={MagicEdenWalletConnect}
+                sx={{
+                  display: "flex",
+                  gap: "12px",
+                  alignItems: "center",
+                  textTransform: "none",
+                  color: "black",
+                  justifyContent: "flex-start",
+                }}
+              >
+                <img
+                  src={"/assets/wallet/magiceden.png"}
+                  alt=""
+                  style={{
+                    width: "30px",
+                    height: "30px",
+                    borderRadius: "5px",
+                  }}
+                />{" "}
+                Magiceden Wallet
               </Button>
             </Stack>
           </Box>

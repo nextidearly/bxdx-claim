@@ -692,7 +692,7 @@ export default function Home() {
                 onClick={async () => {
                   if (!walletAddress) {
                     toast.error(
-                      'Please connect your BTC wallet to verify if you are presaler'
+                      'Please connect your BTC wallet.'
                     );
                     return;
                   }
